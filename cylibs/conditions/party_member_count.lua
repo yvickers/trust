@@ -16,7 +16,7 @@ function PartyMemberCountCondition.new(member_count, operator, distance)
     local self = setmetatable(Condition.new(), PartyMemberCountCondition)
     self.member_count = member_count or 6
     self.operator = operator or Condition.Operator.GreaterThanOrEqualTo
-    self.distance = distance or 50
+    self.distance = distance
     return self
 end
 
@@ -45,7 +45,11 @@ function PartyMemberCountCondition:serialize()
 end
 
 function PartyMemberCountCondition:tostring()
-    return string.format("Has %s %d party members within %d yalms", self.operator, self.member_count, self.distance)
+    if self.distance then
+        return string.format("Has %s %d party members within %d yalms", self.operator, self.member_count, self.distance)
+    else
+        return string.format("Has %s %d party members", self.operator, self.member_count)
+    end
 end
 
 function PartyMemberCountCondition.description()
