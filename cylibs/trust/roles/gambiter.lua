@@ -1,6 +1,7 @@
 local DisposeBag = require('cylibs/events/dispose_bag')
 local logger = require('cylibs/logger/logger')
 local Timer = require('cylibs/util/timers/timer')
+local GambitCondition = require('cylibs/gambits/gambit_condition')
 local GambitTarget = require('cylibs/gambits/gambit_target')
 local GambitTargetGroup = require('cylibs/gambits/gambit_target_group')
 local ValueRelay = require('cylibs/events/value_relay')
@@ -9,15 +10,26 @@ local Gambiter = setmetatable({}, {__index = Role })
 Gambiter.__index = Gambiter
 Gambiter.__class = "Gambiter"
 
+local DefaultGambiter = setmetatable({}, {__index = Gambiter })
+DefaultGambiter.__index = DefaultGambiter
+DefaultGambiter.__class = "DefaultGambiter"
+
 state.AutoGambitMode = M{['description'] = 'Use Gambits', 'Auto', 'Off'}
 state.AutoGambitMode:set_description('Auto', "Automatically use gambits.")
+
+local all_gambit_target_types = L{
+    GambitTarget.TargetType.Self,
+    GambitTarget.TargetType.Enemy,
+    GambitTarget.TargetType.CurrentTarget,
+    GambitTarget.TargetType.Ally,
+}
 
 function Gambiter:on_active_changed()
     return self.is_active:onValueChanged()
 end
 
 
-function Gambiter.new(action_queue, gambit_settings, state_var)
+function Gambiter.new(action_queue, gambit_settings, state_var, include_alliance)
     local self = setmetatable(Role.new(action_queue), Gambiter)
 
     if class(state_var) ~= 'List' then
@@ -28,8 +40,9 @@ function Gambiter.new(action_queue, gambit_settings, state_var)
     self.state_vars = state_var or L{ state.AutoGambitMode }
     self.timer = Timer.scheduledTimer(1)
     self.enabled = true
+    self.include_alliance = include_alliance or false
     self.is_active = ValueRelay.new(false)
-    self.last_gambit_time = os.time() - self:get_cooldown()
+    self.last_gambit_time = os.clock() - self:get_cooldown()
     self.gambiter_dispose_bag = DisposeBag.new()
 
     self.gambiter_dispose_bag:addAny(L{ self.timer, self.is_active })
@@ -37,6 +50,10 @@ function Gambiter.new(action_queue, gambit_settings, state_var)
     self:set_gambit_settings(gambit_settings)
 
     return self
+end
+
+function Gambiter.default(action_queue, gambit_settings, state_var, include_alliance)
+    return DefaultGambiter.new(action_queue, gambit_settings, state_var, nil, include_alliance)
 end
 
 function Gambiter:destroy()
@@ -88,45 +105,74 @@ function Gambiter:get_cooldown()
 end
 
 function Gambiter:check_gambits(gambits, param, ignore_delay)
-    if not self:is_enabled() or not ignore_delay and (os.time() - self.last_gambit_time) < self:get_cooldown() then
+    if not self:is_enabled() or not ignore_delay and (os.clock() - self.last_gambit_time) < self:get_cooldown() then
         return
     end
 
-    logger.notice(self.__class, 'check_gambits', self:get_type(), localization_util.commas(self.state_vars:map(function(state_var) return state_var.value end)))
+    if logger.isEnabled then
+        logger.notice(self.__class, 'check_gambits', self:get_type(), localization_util.commas(self.state_vars:map(function(state_var) return state_var.value end)))
+    end
 
     if not self:allows_multiple_actions() and self.action_queue:has_action(self:get_action_identifier()) then
         logger.notice(self.__class, 'check_gambits', self:get_type(), 'duplicate')
         return
     end
 
-    local gambits = (gambits or self:get_all_gambits()):filter(function(gambit) return gambit:isEnabled() end)
+    local gambits = gambits or self:get_all_gambits()
+    local resolved_targets = self:get_gambit_targets(all_gambit_target_types)
     for gambit in gambits:it() do
-        local success, target = self:is_gambit_satisfied(gambit, param)
-        if success then
-            self:perform_gambit(gambit, target)
-            break
+        if gambit:isEnabled() then
+            local success, target = self:is_gambit_satisfied(gambit, param, resolved_targets)
+            if success then
+                self:perform_gambit(gambit, target, param)
+                break
+            end
         end
     end
-    logger.notice(self.__class, 'check_gambits', self:get_type(), 'checked', gambits:length(), 'gambits')
+    if logger.isEnabled then
+        logger.notice(self.__class, 'check_gambits', self:get_type(), 'checked', gambits:length(), 'gambits')
+    end
 
-    self.last_gambit_time = os.time() -- FIXME: should i really add this? Otherwise cooldown isn't respected
+    self.last_gambit_time = os.clock() -- FIXME: should i really add this? Otherwise cooldown isn't respected
 end
 
-function Gambiter:is_gambit_satisfied(gambit, param)
-    local target_types = L{ GambitTarget.TargetType.Self, GambitTarget.TargetType.Enemy, GambitTarget.TargetType.CurrentTarget }
+function Gambiter:is_gambit_satisfied(gambit, param, resolved_targets)
+    resolved_targets = resolved_targets or self:get_gambit_targets(all_gambit_target_types)
+
+    local targets_by_type = {
+        [GambitTarget.TargetType.Self] = resolved_targets[GambitTarget.TargetType.Self],
+        [GambitTarget.TargetType.Enemy] = resolved_targets[GambitTarget.TargetType.Enemy],
+        [GambitTarget.TargetType.CurrentTarget] = resolved_targets[GambitTarget.TargetType.CurrentTarget],
+    }
+    local comparator = gambit:getPriorityComparator()
+
     if gambit:hasConditionTarget(GambitTarget.TargetType.Ally) then
-        target_types:append(GambitTarget.TargetType.Ally)
-    end
-    local gambit_target_group = GambitTargetGroup.new(self:get_gambit_targets(target_types))
-    for targets_by_type in gambit_target_group:it() do
-        local get_target_by_type = function(target_type)
-            return targets_by_type[target_type]
+        local allies = resolved_targets[GambitTarget.TargetType.Ally]
+
+        if comparator ~= nil and allies ~= nil and allies:length() > 1 then
+            allies = allies:copy(false):sort(comparator)
         end
+
+        targets_by_type[GambitTarget.TargetType.Ally] = allies
+    end
+    local gambit_target_group = GambitTargetGroup.new(targets_by_type)
+    local current_targets_by_type
+
+    local function get_target_by_type(target_type)
+        return current_targets_by_type[target_type]
+    end
+
+    for targets_by_type in gambit_target_group:it() do
+        current_targets_by_type = targets_by_type
+
         if gambit:isSatisfied(get_target_by_type, param) then
             local target = get_target_by_type(gambit:getAbilityTarget())
-            return true, target
+            if comparator == nil or target ~= nil then
+                return true, target
+            end
         end
     end
+
     return false, nil
 end
 
@@ -141,12 +187,18 @@ function Gambiter:get_gambit_targets(gambit_target_types)
         if gambit_target_type == GambitTarget.TargetType.Self then
             target_group = self:get_player()
         elseif gambit_target_type == GambitTarget.TargetType.Ally then
-            target_group = self:get_party()
-            --target_group = self:get_alliance()
+            if self.include_alliance then
+                target_group = self:get_alliance()
+            else
+                target_group = self:get_party()
+            end
         elseif gambit_target_type == GambitTarget.TargetType.Enemy then
             target_group = self:get_target()
         elseif gambit_target_type == GambitTarget.TargetType.CurrentTarget then
-            target_group = windower.ffxi.get_mob_by_target('t') and Monster.new(windower.ffxi.get_mob_by_target('t').id)
+            local current_target = windower.ffxi.get_mob_by_target('t')
+            if current_target then
+                target_group = self:get_party():get_target(current_target.id) or Monster.new(current_target.id)
+            end
         end
         if target_group then
             local targets = L{}
@@ -165,14 +217,20 @@ function Gambiter:get_gambit_targets(gambit_target_types)
     return targets_by_type
 end
 
-function Gambiter:perform_gambit(gambit, target)
+function Gambiter:perform_gambit(gambit, target, param)
     if target == nil or target:get_mob() == nil then
         return
     end
-    logger.notice(self.__class, 'perform_gambit', gambit:tostring(), target:get_mob().name)
+    if logger.isEnabled then
+        logger.notice(self.__class, 'perform_gambit', gambit:tostring(), target:get_mob().name)
+    end
     local action = gambit:getAbility():to_action(target:get_mob().index, self:get_player())
+    action.validate = function()
+        local success, _ = self:is_gambit_satisfied(gambit, param)
+        return success
+    end
     if action then
-        self.last_gambit_time = os.time()
+        self.last_gambit_time = os.clock()
 
         if gambit:getTags():contains('reaction') or gambit:getTags():contains('Reaction') then
             self.action_queue:clear()
@@ -215,20 +273,23 @@ function Gambiter:set_gambit_settings(gambit_settings)
     self.job_gambits = (gambit_settings.Default or L{}):filter(function(gambit)
         return gambit:getAbility() ~= nil
     end)
+    self.all_gambits = L{}:extend(self.gambits):extend(self.job_gambits)
 end
 
 function Gambiter:get_all_gambits()
-    return L{}:extend(self.gambits):extend(self.job_gambits)
+    return self.all_gambits
 end
 
 function Gambiter:is_enabled()
-    local state_vars_enabled = self.state_vars:filter(function(state_var)
-        return state_var.value ~= 'Off'
-    end)
-    if state_vars_enabled:length() == 0 then
+    if not self.enabled then
         return false
     end
-    return self.enabled
+    for state_var in self.state_vars:it() do
+        if state_var.value ~= 'Off' then
+            return true
+        end
+    end
+    return false
 end
 
 function Gambiter:set_enabled(enabled)
@@ -237,6 +298,49 @@ end
 
 function Gambiter:tostring()
     return tostring(self:get_all_gambits())
+end
+
+
+
+function DefaultGambiter.new(action_queue, gambit_settings, state_var, job, include_alliance)
+    local self = setmetatable(Gambiter.new(action_queue, {}, state_var, include_alliance), DefaultGambiter)
+
+    self.job = job
+
+    self:set_gambit_settings(gambit_settings)
+
+    return self
+end
+
+function DefaultGambiter:destroy()
+    Gambiter.destroy(self)
+end
+
+function DefaultGambiter:set_gambit_settings(gambit_settings)
+    if self.job == nil then
+        return
+    end
+    local all_gambits = L{ gambit_settings.Gambits or L{}, gambit_settings.Default or L{} }
+    for gambit_list in all_gambits:it() do
+        for gambit in (gambit_list or L{}):it() do
+            gambit.conditions = gambit.conditions:filter(function(condition)
+                return condition:is_editable()
+            end)
+            local conditions = self:get_default_conditions(gambit)
+            for condition in conditions:it() do
+                condition:set_editable(false)
+                gambit:addCondition(condition)
+            end
+        end
+    end
+    Gambiter.set_gambit_settings(self, gambit_settings)
+end
+
+function DefaultGambiter:get_default_conditions(gambit)
+    local conditions = L{}
+    return conditions + self.job:get_conditions_for_ability(gambit:getAbility()):map(function(condition)
+        return GambitCondition.new(condition, GambitTarget.TargetType.Self)
+    end)
 end
 
 return Gambiter

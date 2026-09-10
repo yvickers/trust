@@ -67,15 +67,18 @@ function Bubbler:set_geomancy_settings(geomancy_settings)
             GambitCondition.new(HasPetCondition.new(), GambitTarget.TargetType.Self),
             GambitCondition.new(PetHitPointsPercentCondition.new(25, Condition.Operator.LessThan), GambitTarget.TargetType.Self),
         }, JobAbility.new('Life Cycle'), Condition.TargetType.Self),
-        --[[Gambit.new(GambitTarget.TargetType.Self, L{
-            GambitCondition.new(HasPetCondition.new(), GambitTarget.TargetType.Self),
-            GambitCondition.new(NotCondition.new(L{ HasBuffCondition.new('Bolster') }), GambitTarget.TargetType.Self),
-        }, JobAbility.new('Ecliptic Attrition'), Condition.TargetType.Self),
-        Gambit.new(GambitTarget.TargetType.Self, L{
-            GambitCondition.new(HasPetCondition.new(), GambitTarget.TargetType.Self),
-            GambitCondition.new(NotCondition.new(L{ HasBuffCondition.new('Bolster') }), GambitTarget.TargetType.Self),
-        }, JobAbility.new('Lasting Emanation'), Condition.TargetType.Self),]]
     }
+
+    for ability_name in L{ 'Ecliptic Attrition', 'Lasting Emanation', 'Dematerialize' }:it() do
+        if geomancy_settings[ability_name:gsub(" ", "")] then
+            gambit_settings.Gambits:append(
+                Gambit.new(GambitTarget.TargetType.Self, L{
+                    GambitCondition.new(HasPetCondition.new(), GambitTarget.TargetType.Self),
+                    GambitCondition.new(NotCondition.new(L{ HasBuffCondition.new('Bolster') }), GambitTarget.TargetType.Self),
+                }, JobAbility.new(ability_name), Condition.TargetType.Self)
+            )
+        end
+    end
 
     if L(geomancy_settings.Geo:get_spell().targets):contains("Enemy") then
         local geocolure = Spell.new(geomancy_settings.Geo:get_name(), L{ 'Blaze of Glory' })
@@ -84,19 +87,29 @@ function Bubbler:set_geomancy_settings(geomancy_settings)
         gambit_settings.Gambits = gambit_settings.Gambits + L{
             Gambit.new(GambitTarget.TargetType.Self, L{
                 GambitCondition.new(HasPetCondition.new(), GambitTarget.TargetType.Self),
-                GambitCondition.new(PetDistanceCondition.new(6, Condition.Operator.GreaterThan), GambitTarget.TargetType.Enemy),
+                GambitCondition.new(PetDistanceCondition.new(geomancy_settings.FullCircleDistance or 6, Condition.Operator.GreaterThan), GambitTarget.TargetType.Enemy),
             }, JobAbility.new('Full Circle'), Condition.TargetType.Self),
             Gambit.new(GambitTarget.TargetType.Enemy, L{
                 GambitCondition.new(NotCondition.new(L{ HasPetCondition.new() }), GambitTarget.TargetType.Self),
                 GambitCondition.new(PartyClaimedCondition.new(true), GambitTarget.TargetType.Enemy),
                 GambitCondition.new(NotCondition.new(L{ HasBuffCondition.new('Bolster') }), GambitTarget.TargetType.Self),
-            }, geocolure, Condition.TargetType.Self),
+            }, Spell.new(geomancy_settings.Geo:get_name()), Condition.TargetType.Self),
             Gambit.new(GambitTarget.TargetType.Enemy, L{
                 GambitCondition.new(NotCondition.new(L{ HasPetCondition.new() }), GambitTarget.TargetType.Self),
                 GambitCondition.new(PartyClaimedCondition.new(true), GambitTarget.TargetType.Enemy),
                 GambitCondition.new(HasBuffCondition.new('Bolster'), GambitTarget.TargetType.Self),
             }, Spell.new(geomancy_settings.Geo:get_name()), Condition.TargetType.Self),
         }
+
+        if geomancy_settings.BlazeOfGlory then
+            gambit_settings.Gambits:append(
+                Gambit.new(GambitTarget.TargetType.Enemy, L{
+                    GambitCondition.new(NotCondition.new(L{ HasPetCondition.new() }), GambitTarget.TargetType.Self),
+                    GambitCondition.new(PartyClaimedCondition.new(true), GambitTarget.TargetType.Enemy),
+                    GambitCondition.new(NotCondition.new(L{ HasBuffCondition.new('Bolster') }), GambitTarget.TargetType.Self),
+                }, geocolure, Condition.TargetType.Self)
+            )
+        end
     else
         local geocolure = Spell.new(geomancy_settings.Geo:get_name(), L{ 'Blaze of Glory' }, L{}, geomancy_settings.Geo:get_target())
         geocolure:set_requires_all_job_abilities(false)
@@ -113,15 +126,25 @@ function Bubbler:set_geomancy_settings(geomancy_settings)
                 GambitCondition.new(HasPetCondition.new(), GambitTarget.TargetType.Self),
                 GambitCondition.new(PetDistanceCondition.new(6, Condition.Operator.GreaterThan), target_type),
             }, JobAbility.new('Full Circle'), Condition.TargetType.Self),
+
             Gambit.new(GambitTarget.TargetType.Self, L{
                 GambitCondition.new(NotCondition.new(L{ HasPetCondition.new() }), GambitTarget.TargetType.Self),
                 GambitCondition.new(NotCondition.new(L{ HasBuffCondition.new('Bolster') }), GambitTarget.TargetType.Self),
-            }, geocolure, Condition.TargetType.Self),
+            }, Spell.new(geomancy_settings.Geo:get_name(), L{}, L{}, geomancy_settings.Geo:get_target()), Condition.TargetType.Self),
             Gambit.new(GambitTarget.TargetType.Self, L{
                 GambitCondition.new(NotCondition.new(L{ HasPetCondition.new() }), GambitTarget.TargetType.Self),
                 GambitCondition.new(HasBuffCondition.new('Bolster'), GambitTarget.TargetType.Self),
             }, Spell.new(geomancy_settings.Geo:get_name(), L{}, L{}, geomancy_settings.Geo:get_target()), Condition.TargetType.Self),
         }
+
+        if geomancy_settings.BlazeOfGlory then
+            gambit_settings.Gambits:append(
+                Gambit.new(GambitTarget.TargetType.Self, L{
+                    GambitCondition.new(NotCondition.new(L{ HasPetCondition.new() }), GambitTarget.TargetType.Self),
+                    GambitCondition.new(NotCondition.new(L{ HasBuffCondition.new('Bolster') }), GambitTarget.TargetType.Self),
+                }, geocolure, Condition.TargetType.Self)
+            )
+        end
     end
 
     for gambit in gambit_settings.Gambits:it() do
@@ -141,6 +164,7 @@ end
 function Bubbler:get_default_conditions(gambit)
     local conditions = L{
         MaxDistanceCondition.new(20),
+        NotCondition.new(L{ InTownCondition.new() })
     }
 
     local ability_conditions = (L{} + self.job:get_conditions_for_ability(gambit:getAbility()))

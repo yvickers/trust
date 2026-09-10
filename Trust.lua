@@ -1,7 +1,7 @@
 _addon.author = 'Cyrite'
 _addon.commands = {'Trust','trust'}
 _addon.name = 'Trust'
-_addon.version = '15.6.1'
+_addon.version = '17.7.1'
 _addon.release_notes = ""
 _addon.release_url = "https://github.com/cyritegamestudios/trust/releases"
 _addon.start_time = os.time()
@@ -22,6 +22,18 @@ function load_user_files(main_job_id, sub_job_id)
 	local start_time = os.clock()
 
 	addon_system_message("Loaded Trust v".._addon.version)
+
+	local blacklisted_addons = L{}
+	for addon_name in L{ 'ata', 'ATA' }:it() do
+		local addon_path = string.format("%s/%s/%s/%s.lua", windower.windower_path, 'addons', addon_name, addon_name)
+
+		if windower.file_exists(addon_path) then
+			blacklisted_addons:append(addon_name)
+		end
+	end
+	if blacklisted_addons:length() > 0 then
+		addon_system_error(string.format("Please unload the following addons or Trust will not work properly: %s", localization_util.commas(blacklisted_addons)))
+	end
 
 	action_queue = ActionQueue.new(nil, true, 5, false, true, true)
 
@@ -108,12 +120,12 @@ function load_user_files(main_job_id, sub_job_id)
 	end
 
 	player.trust.main_job:add_role(Reacter.new(action_queue, player.trust.main_job_settings.Default.ReactionSettings, skillchainer))
-	player.trust.main_job:add_role(Gambiter.new(action_queue, player.trust.main_job_settings.Default.GambitSettings))
-	player.trust.main_job:add_role(Attacker.new(action_queue))
-	player.trust.main_job:add_role(CombatMode.new(action_queue, addon_settings:getSettings().battle.melee_distance, addon_settings:getSettings().battle.range_distance, addon_enabled))
+	player.trust.main_job:add_role(Gambiter.default(action_queue, player.trust.main_job_settings.Default.GambitSettings))
+	player.trust.main_job:add_role(Attacker.new(action_queue, player.trust.main_job_settings.Default.CombatSettings))
+	player.trust.main_job:add_role(CombatMode.new(action_queue, player.trust.main_job_settings.Default.CombatSettings, addon_enabled))
 	local follower = Follower.new(action_queue, addon_settings:getSettings().follow.distance, addon_settings)
 	player.trust.main_job:add_role(follower)
-	player.trust.main_job:add_role(Pather.new(action_queue, 'data/paths/', follower))
+	player.trust.main_job:add_role(Pather.new(action_queue, 'data/paths/', follower, player.trust.main_job:role_with_type("puller")))
 	player.trust.main_job:add_role(skillchainer)
 	player.trust.main_job:add_role(Spammer.new(action_queue, weapon_skill_settings))
 	player.trust.main_job:add_role(Cleaver.new(action_queue, weapon_skill_settings))
@@ -122,7 +134,7 @@ function load_user_files(main_job_id, sub_job_id)
 
 	if player.sub_job_name_short ~= 'NON' then
 		player.trust.sub_job:add_role(Reacter.new(action_queue, player.trust.sub_job_settings.Default.ReactionSettings, skillchainer))
-		player.trust.sub_job:add_role(Gambiter.new(action_queue, player.trust.sub_job_settings.Default.GambitSettings))
+		player.trust.sub_job:add_role(Gambiter.default(action_queue, player.trust.sub_job_settings.Default.GambitSettings))
 	end
 
 	player.trust.main_job:on_trust_roles_changed():addAction(function(trust, roles_added, roles_removed)
@@ -166,6 +178,14 @@ function load_user_files(main_job_id, sub_job_id)
 		return widgets:getWidget(widget_name)
 	end
 
+	windower.trust.ui.add_widget = function(widget, widget_name)
+		widgets:addWidget(widget, widget_name)
+	end
+
+	windower.trust.ui.remove_widget = function(widget_name)
+		widgets:removeWidget(widget_name)
+	end
+
 	load_ui()
 	load_trust_commands(player.main_job_name_short, player.trust.main_job, player.sub_job_name_short, player.trust.sub_job, action_queue, player.party, main_trust_settings, sub_trust_settings)
 
@@ -192,6 +212,12 @@ function load_trust_modes(job_name_short)
 	trust_mode_settings:copySettings()
 
 	local function update_for_new_modes(new_modes)
+		for state_name, state_var in pairs(state) do
+			if class(state_var) == 'mode' and state_name ~= 'TrustMode'
+					and new_modes[state_name:lower()] == nil then
+				state_var:reset()
+			end
+		end
 		for state_name, value in pairs(new_modes) do
 			local state_var = get_state(state_name)
 			if state_var then
@@ -232,13 +258,13 @@ end
 function load_trust_commands(job_name_short, main_job_trust, sub_job_name_short, sub_job_trust, action_queue, party, main_trust_settings, sub_trust_settings)
 	local common_commands = L{
 		AssistCommands.new(main_job_trust, action_queue),
-		AttackCommands.new(main_job_trust, action_queue),
-		state.AutoBuffMode and BuffCommands.new(),
-		state.AutoDebuffMode and DebuffCommands.new(),
+		AttackCommands.new(main_job_trust, main_trust_settings, action_queue),
+		state.AutoBuffMode and BuffCommands.new(main_job_trust, main_trust_settings),
+		state.AutoDebuffMode and DebuffCommands.new(main_job_trust, main_trust_settings),
 		FollowCommands.new(main_job_trust, action_queue),
 		GeneralCommands.new(main_job_trust, action_queue, addon_enabled, trust_mode_settings, main_trust_settings, sub_trust_settings),
-		state.AutoHealMode and HealCommands.new(main_job_trust:role_with_type("healer") and main_job_trust or sub_job_trust:role_with_type("healer") and sub_job_trust),
-		state.AutoStatusRemovalMode and StatusRemovalCommands.new(),
+		state.AutoHealMode and HealCommands.new(main_job_trust:role_with_type("healer") and main_job_trust or sub_job_trust:role_with_type("healer") and sub_job_trust, main_trust_settings),
+		state.AutoStatusRemovalMode and StatusRemovalCommands.new(main_job_trust, main_trust_settings),
 		LoggingCommands.new(main_job_trust, action_queue),
 		state.AutoMagicBurstMode and MagicBurstCommands.new(main_job_trust, main_trust_settings, action_queue),
 		MenuCommands.new(main_job_trust, action_queue, hud),
@@ -246,8 +272,8 @@ function load_trust_commands(job_name_short, main_job_trust, sub_job_name_short,
 		state.AutoNukeMode and NukeCommands.new(main_job_trust, main_trust_settings, action_queue),
 		PathCommands.new(main_job_trust, action_queue),
 		ProfileCommands.new(main_trust_settings, sub_trust_settings, trust_mode_settings, weapon_skill_settings),
-		PullCommands.new(main_job_trust, action_queue, main_job_trust:role_with_type("puller") or sub_job_trust:role_with_type("puller")),
-		ScenarioCommands.new(main_job_trust, action_queue, party, addon_settings),
+		PullCommands.new(main_job_trust, main_trust_settings, action_queue, main_job_trust:role_with_type("puller") or sub_job_trust:role_with_type("puller")),
+		ScenarioCommands.new(main_job_trust, action_queue, party, addon_settings, main_trust_settings),
 		SendAllCommands.new(main_job_trust, action_queue),
 		SendCommands.new(main_job_trust, action_queue),
 		SkillchainCommands.new(main_job_trust, weapon_skill_settings, action_queue),
@@ -557,6 +583,10 @@ function handle_status_change(new_status_id, old_status_id)
 		elseif state.AutoUnloadOnDeathMode.value == 'Auto' then
 			handle_unload()
 		end
+	elseif player.status == 'Event' then
+		for queue in L{ action_queue, player.trust.main_job:role_with_type("follower").walk_action_queue }:it() do
+			queue:clear()
+		end
 	end
 end
 
@@ -639,9 +669,6 @@ function unloaded()
 end
 
 function loaded()
-	windower.chat.input('/console console_echo Unloaded addons that conflict with Trust.')
-	windower.send_command('lua unload ata')
-
 	addon_system_message("Loading Trust...")
 
 	if windower.ffxi.get_player() == nil or windower.ffxi.get_mob_by_id(windower.ffxi.get_player().id) == nil then

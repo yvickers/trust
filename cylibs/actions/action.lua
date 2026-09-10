@@ -50,6 +50,7 @@ function Action.new(x, y, z, target_index, conditions)
         cancelled = false;
         priority = ActionPriority.default;
         identifier = os.time();
+        validate = function() return true end
     }, Action)
 
     self.action_complete = Event.newEvent()
@@ -77,7 +78,9 @@ function Action:can_perform()
     for condition in self.conditions:it() do
         local check_target_index = condition:get_target_index() or self.target_index
         if not condition:is_satisfied(check_target_index) then
-            logger.notice(self.__class, 'can_perform', 'failed condition', condition:tostring())
+            if logger.isEnabled then
+                logger.notice(self.__class, 'can_perform', 'failed condition', condition:tostring())
+            end
             return false
         end
     end

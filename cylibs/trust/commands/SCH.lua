@@ -53,23 +53,23 @@ end
 function ScholarTrustCommands:get_spells(element)
     element = element:lower()
     if element == "liquefaction" then
-        return "Stone", "Fire"
+        return "Stone", "Pyrohelix" 
     elseif element == "scission" then
-        return "Aero", "Stone"
+        return "Fire", "Stone"
     elseif element == "reverberation" then
-        return "Stone", "Water"
+        return "Stone", "Hydrohelix"
     elseif element == "detonation" then
-        return "Stone", "Aero"
+        return "Thunder", "Anemohelix"
     elseif element == "induration" then
         return "Water", "Blizzard"
     elseif element == "impaction" then
-        return "Water", "Ionohelix"
+        return "Blizzard", "Ionohelix"
     elseif element == "transfixion" then
         return "Noctohelix", "Luminohelix"
     elseif element == "compression" then
         return "Blizzard", "Noctohelix"
     elseif element == "fragmentation" then
-        return "Blizzard", "Water"
+        return "Blizzard", "Hydrohelix"
     elseif element == "fusion" then
         return "Fire", "Ionohelix"
     elseif element == "gravitation" then

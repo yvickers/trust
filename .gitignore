@@ -6,5 +6,9 @@ trust.iml
 assets/equipment/*
 
 # Other
+plus
+premium
 scenarios
+tools
 logs
+.claude

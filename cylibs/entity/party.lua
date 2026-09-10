@@ -115,7 +115,7 @@ function Party:add_party_member(party_member_id, party_member_name)
     if self:has_party_member(party_member_id) then
         return self.party_members[party_member_id]
     end
-
+    
     if party_util.is_alter_ego(party_member_name) then
         self.party_members[party_member_id] = AlterEgo.new(party_member_id, party_member_name)
     elseif party_member_id == windower.ffxi.get_player().id then
@@ -243,6 +243,13 @@ function Party:get_party_leader()
     else
         return self:get_player()
     end
+end
+
+-------
+-- Returns the party leader id.
+-- @treturn number Party leader id
+function Party:get_party_leader_id()
+    return party_util.get_party_leader_id()
 end
 
 -------

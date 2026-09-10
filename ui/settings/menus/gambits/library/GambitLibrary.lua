@@ -41,6 +41,10 @@ return L{
         Gambit.new("Enemy", L{MaxManaPointsPercentCondition.new(40)}, Spell.new("Aspir III", L{}, L{}, nil, L{}), "Self", L{"Spells"}),
     }),
     GambitCategory.new("Ailments", "Remove status ailments.", L{
+        Gambit.new("Ally", L{GambitCondition.new(NotCondition.new(L{HasRaiseCondition.new()}), "Ally"), GambitCondition.new(StatusCondition.new("Dead", 5, ">="), "Ally")}, Spell.new("Arise", L{}, L{}, nil, L{}), "Ally", L{}, true),
+        Gambit.new("Ally", L{GambitCondition.new(NotCondition.new(L{HasRaiseCondition.new()}), "Ally"), GambitCondition.new(StatusCondition.new("Dead", 5, ">="), "Ally")}, Spell.new("Raise III", L{}, L{}, nil, L{}), "Ally", L{}, true),
+        Gambit.new("Ally", L{GambitCondition.new(NotCondition.new(L{HasRaiseCondition.new()}), "Ally"), GambitCondition.new(StatusCondition.new("Dead", 5, ">="), "Ally")}, Spell.new("Raise II", L{}, L{}, nil, L{}), "Ally", L{}, true),
+        Gambit.new("Ally", L{GambitCondition.new(NotCondition.new(L{HasRaiseCondition.new()}), "Ally"), GambitCondition.new(StatusCondition.new("Dead", 5, ">="), "Ally")}, Spell.new("Raise", L{}, L{}, nil, L{}), "Ally", L{}, true),
         Gambit.new("Ally", L{GambitCondition.new(HasBuffsCondition.new(L{"sleep"}, 1), "Ally")}, Spell.new("Curaga", L{}, L{}, nil, L{}), "Ally", L{}, true),
         Gambit.new("Ally", L{GambitCondition.new(HasBuffsCondition.new(L{"sleep"}, 1), "Ally")}, Spell.new("Cure", L{}, L{}, nil, L{}), "Ally", L{}, true),
         Gambit.new("Self", L{GambitCondition.new(HasBuffsCondition.new(L{"curse", "doom", "doomed"}, 1), "Self")}, Spell.new("Cursna", L{}, L{}, nil, L{}), "Self", L{}, true),
@@ -60,6 +64,7 @@ return L{
         Gambit.new("Ally", L{GambitCondition.new(HasBuffsCondition.new(L{"disease"}, 1), "Ally")}, Spell.new("Viruna", L{}, L{}, nil, L{}), "Ally", L{}, true),
         Gambit.new("Self", L{GambitCondition.new(HasBuffsCondition.new(L{"blindness"}, 1), "Self")}, Spell.new("Blindna", L{}, L{}, nil, L{}), "Self", L{}, true),
         Gambit.new("Ally", L{GambitCondition.new(HasBuffsCondition.new(L{"blindness"}, 1), "Ally")}, Spell.new("Blindna", L{}, L{}, nil, L{}), "Ally", L{}, true),
+        Gambit.new("Ally", L{GambitCondition.new(HasBuffsCondition.new(L{"zombie"}, 1), "Ally")}, Spell.new("Sacrifice", L{}, L{}, nil, L{}), "Ally", L{}, true),
         Gambit.new("Self", L{
             GambitCondition.new(HasBuffsCondition.new(L{
                 "sleep", "curse", "Accuracy Down", "addle", "AGI Down", "Attack Down", "bind", "Bio", "Burn",
@@ -91,6 +96,12 @@ return L{
         Gambit.new("Ally", L{GambitCondition.new(ClusterHitPointsPercentRangeCondition.new(1, 75, 3), "Ally")}, Spell.new("Curaga III", L{}, L{}, nil, L{}), "Ally", L{"Spells"}, true),
         Gambit.new("Ally", L{GambitCondition.new(ClusterHitPointsPercentRangeCondition.new(1, 80, 3), "Ally")}, Spell.new("Curaga II", L{}, L{}, nil, L{}), "Ally", L{"Spells"}, true),
         Gambit.new("Ally", L{GambitCondition.new(ClusterHitPointsPercentRangeCondition.new(1, 85, 3), "Ally")}, Spell.new("Curaga", L{}, L{}, nil, L{}), "Ally", L{"Spells"}, true),
+        Gambit.new("Self", L{GambitCondition.new(ClusterHitPointsPercentRangeCondition.new(1, 65, 3), "Self")}, Spell.new("Cura III", L{}, L{}, nil, L{}), "Self", L{"Spells"}, true),
+        Gambit.new("Self", L{GambitCondition.new(ClusterHitPointsPercentRangeCondition.new(1, 75, 3), "Self")}, Spell.new("Cura II", L{}, L{}, nil, L{}), "Self", L{"Spells"}, true),
+        Gambit.new("Self", L{GambitCondition.new(ClusterHitPointsPercentRangeCondition.new(1, 80, 3), "Self")}, Spell.new("Cura", L{}, L{}, nil, L{}), "Self", L{"Spells"}, true),
+        Gambit.new("Self", L{GambitCondition.new(ClusterHitPointsPercentRangeCondition.new(1, 65, 3), "Ally")}, Spell.new("Cura III", L{}, L{}, nil, L{}), "Self", L{"Spells"}, true),
+        Gambit.new("Self", L{GambitCondition.new(ClusterHitPointsPercentRangeCondition.new(1, 75, 3), "Ally")}, Spell.new("Cura II", L{}, L{}, nil, L{}), "Self", L{"Spells"}, true),
+        Gambit.new("Self", L{GambitCondition.new(ClusterHitPointsPercentRangeCondition.new(1, 80, 3), "Ally")}, Spell.new("Cura", L{}, L{}, nil, L{}), "Self", L{"Spells"}, true),
         Gambit.new("Self", L{GambitCondition.new(HitPointsPercentRangeCondition.new(1, 40), "Self")}, Spell.new("Cure VI", L{}, L{}, nil, L{}), "Self", L{"Spells"}, true),
         Gambit.new("Self", L{GambitCondition.new(HitPointsPercentRangeCondition.new(1, 60), "Self")}, Spell.new("Cure V", L{}, L{}, nil, L{}), "Self", L{"Spells"}, true),
         Gambit.new("Self", L{GambitCondition.new(HitPointsPercentRangeCondition.new(1, 65), "Self")}, Spell.new("Cure IV", L{}, L{}, nil, L{}), "Self", L{"Spells"}, true),
@@ -134,5 +145,11 @@ return L{
         Gambit.new("Enemy", L{NotCondition.new(L{HasDebuffCondition.new("Defense Down")}), InBattleCondition.new()}, WeaponSkill.new("Armor Break", L{MinTacticalPointsCondition.new(1000)}), "Enemy", L{"Weaponskills"}),
         Gambit.new("Enemy", L{NotCondition.new(L{HasDebuffCondition.new("Defense Down")}), InBattleCondition.new()}, WeaponSkill.new("Full Break", L{MinTacticalPointsCondition.new(1000)}), "Enemy", L{"Weaponskills"}),
         Gambit.new("Self", L{GambitCondition.new(MaxManaPointsPercentCondition.new(40), "Self"), GambitCondition.new(CombatSkillsCondition.new(L{"Staff"}), "Self"), GambitCondition.new(ModeCondition.new("AutoRestoreManaMode", "Auto"), "Self"), GambitCondition.new(MinTacticalPointsCondition.new(1000), "Self")}, WeaponSkill.new("Myrkr", L{}, L{}), "Self", L{"Weaponskill"}),
+    }),
+    GambitCategory.new("Steps", "Use steps.", L{
+        Gambit.new("Enemy", L{GambitCondition.new(HasDazeCondition.new("Lethargic Daze", 1, "<"), "Enemy")}, JobAbility.new("Quickstep", L{}), "Enemy", L{"Steps"}, true),
+        Gambit.new("Enemy", L{GambitCondition.new(HasDazeCondition.new("Weakened Daze", 1, "<"), "Enemy")}, JobAbility.new("Stutter Step", L{}), "Enemy", L{"Steps"}, true),
+        Gambit.new("Enemy", L{GambitCondition.new(HasDazeCondition.new("Sluggish Daze", 1, "<"), "Enemy")}, JobAbility.new("Box Step", L{}), "Enemy", L{"Steps"}, true),
+        Gambit.new("Enemy", L{GambitCondition.new(HasDazeCondition.new("Bewildered Daze", 1, "<"), "Enemy")}, JobAbility.new("Feather Step", L{}), "Enemy", L{"Steps"}, true),
     }),
 }

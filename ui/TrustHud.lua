@@ -1,20 +1,15 @@
 local GambitSettingsMenuItem = require('ui/settings/menus/gambits/GambitSettingsMenuItem')
 local JobGambitSettingsMenuItem = require('ui/settings/menus/gambits/JobGambitSettingsMenuItem')
-local TargetSettingsMenuItem = require('ui/settings/menus/TargetSettingsMenuItem')
 local BackgroundView = require('cylibs/ui/views/background/background_view')
-local BooleanConfigItem = require('ui/settings/editors/config/BooleanConfigItem')
 local ButtonItem = require('cylibs/ui/collection_view/items/button_item')
-local ConfigEditor = require('ui/settings/editors/config/ConfigEditor')
 local ConfigSettingsMenuItem = require('ui/settings/menus/ConfigSettingsMenuItem')
 local FFXIPickerView = require('ui/themes/ffxi/FFXIPickerView')
 local FFXIWindow = require('ui/themes/ffxi/FFXIWindow')
 local Frame = require('cylibs/ui/views/frame')
 local GameInfo = require('cylibs/util/ffxi/game_info')
-local Keyboard = require('cylibs/ui/input/keyboard')
 local MenuItem = require('cylibs/ui/menu/menu_item')
 local ModesMenuItem = require('ui/settings/menus/ModesMenuItem')
 local ReactionSettingsMenuItem = require('ui/settings/menus/gambits/react/ReactSettingsMenuItem')
-local PickerConfigItem = require('ui/settings/editors/config/PickerConfigItem')
 local TrustInfoBar = require('ui/TrustInfoBar')
 local Menu = require('cylibs/ui/menu/menu')
 local ViewStack = require('cylibs/ui/views/view_stack')
@@ -239,15 +234,6 @@ function TrustHud:reloadMainMenuItem()
     end
 end
 
-local function setupView(view, viewSize, hideBackground)
-    if not hideBackground then
-        --view:setBackgroundImageView(createBackgroundView(viewSize.width, viewSize.height))
-    end
-    --view:setNavigationBar(createTitleView(viewSize))
-    view:setSize(viewSize.width, viewSize.height)
-    return view
-end
-
 function TrustHud:getSettingsMenuItem(trust, trustSettings, trustSettingsMode, weaponSkillSettings, weaponSkillSettingsMode, trustModeSettings, jobNameShort)
     local viewSize = Frame.new(0, 0, 500, 500)
 
@@ -270,9 +256,7 @@ function TrustHud:getSettingsMenuItem(trust, trustSettings, trustSettingsMode, w
     if jobNameShort == 'GEO' then
         menuItems:append(ButtonItem.default('Geomancy', 18))
         local GeomancySettingsMenuItem = require('ui/settings/menus/buffs/GeomancySettingsMenuItem')
-        childMenuItems.Geomancy = GeomancySettingsMenuItem.new(trust, trustSettings, trustSettingsMode, self.trustModeSettings, trustSettings:getSettings()[trustSettingsMode.value].Geomancy, trustSettings:getSettings()[trustSettingsMode.value].PartyBuffs, function(view)
-            return setupView(view, viewSize)
-        end)
+        childMenuItems.Geomancy = GeomancySettingsMenuItem.new(trust, trustSettings, trustSettingsMode, self.trustModeSettings, trustSettings:getSettings()[trustSettingsMode.value].Geomancy, trustSettings:getSettings()[trustSettingsMode.value].PartyBuffs)
     end
 
     if jobNameShort == 'SMN' then
@@ -323,6 +307,11 @@ function TrustHud:getSettingsMenuItem(trust, trustSettings, trustSettingsMode, w
     if trust:role_with_type("statusremover") then
         menuItems:append(ButtonItem.default('Ailments', 18))
         childMenuItems["Ailments"] = self:getMenuItemForRole(trust:role_with_type("statusremover"), weaponSkillSettings, weaponSkillSettingsMode, trust, jobNameShort, viewSize, trustSettings, trustSettingsMode, trustModeSettings)
+    end
+
+    if trust:role_with_type("combatmode") then
+        menuItems:append(ButtonItem.default('Combat', 18))
+        childMenuItems.Combat = self:getMenuItemForRole(trust:role_with_type("combatmode"), weaponSkillSettings, weaponSkillSettingsMode, trust, jobNameShort, viewSize, trustSettings, trustSettingsMode, trustModeSettings)
     end
 
     menuItems:append(ButtonItem.localized('Pulling', i18n.translate('Button_Pulling')))
@@ -421,6 +410,9 @@ function TrustHud:getMenuItemForRole(role, weaponSkillSettings, weaponSkillSetti
     if role:get_type() == "nuker" or role:get_type() == "magicburster" then
         return self:getNukerMenuItem(trust, trustSettings, trustSettingsMode, trustModeSettings, jobNameShort)
     end
+    if role:get_type() == "combatmode" then
+        return self:getCombatModeMenuItem(trust, trustSettings, trustSettingsMode)
+    end
     if role:get_type() == "shooter" then
         return self:getShooterMenuItem(trust, trustSettings, trustSettingsMode)
     end
@@ -464,6 +456,12 @@ function TrustHud:getPullerMenuItem(trust, jobNameShort, trustSettings, trustSet
     local PullSettingsMenuItem = require('ui/settings/menus/pulling/PullSettingsMenuItem')
     local pullerSettingsMenuItem = PullSettingsMenuItem.new(L{}, trust, jobNameShort, trustSettings, trustSettingsMode, trustModeSettings)
     return pullerSettingsMenuItem
+end
+
+function TrustHud:getCombatModeMenuItem(trust, trustSettings, trustSettingsMode)
+    local CombatModeSettingsMenuItem = require('ui/settings/menus/CombatModeSettingsMenuItem')
+    local combatModeSettingsMenuItem = CombatModeSettingsMenuItem.new(trustSettings, trustSettingsMode, self.trustModeSettings, trust:role_with_type("combatmode"))
+    return combatModeSettingsMenuItem
 end
 
 function TrustHud:getShooterMenuItem(trust, trustSettings, trustSettingsMode)

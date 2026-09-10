@@ -43,7 +43,8 @@ function GambitConditionSettingsMenuItem.new(trustSettings, parentMenuItem, enab
             return c1 < c2
         end)
 
-        local configItem = MultiPickerConfigItem.new("Conditions", self.conditions:length() > 0 and L{ self.conditions[1] } or L{}, self.conditions, function(condition)
+        local conditions = self:getConditions()
+        local configItem = MultiPickerConfigItem.new("Conditions", conditions:length() > 0 and L{ conditions[1] } or L{}, conditions, function(condition)
             local description = string.format("%s: %s", condition:getTargetType(), condition:tostring())
             return description, condition:is_editable()
         end, "Conditions", nil, nil, function(condition)
@@ -52,7 +53,7 @@ function GambitConditionSettingsMenuItem.new(trustSettings, parentMenuItem, enab
         end)
 
         local editConditionsView = FFXIPickerView.withConfig(L{ configItem }, false, FFXIClassicStyle.WindowSize.Editor.ConfigEditor, TextStyle.Default.TextSmall)
-        editConditionsView:setShouldRequestFocus(self.conditions:length() > 0)
+        editConditionsView:setShouldRequestFocus(conditions:length() > 0)
         editConditionsView:setAllowsCursorSelection(true)
 
         self.editConditionsView = editConditionsView
@@ -88,7 +89,7 @@ function GambitConditionSettingsMenuItem:getAddConditionMenuItem(parentMenuItem)
     local getAddConditionMenuItem = function(targetType)
         local addConditionsMenuItem = MenuItem.new(L{
             ButtonItem.localized('Confirm', i18n.translate('Button_Confirm')),
-        }, {}, function(_, _, _)
+        }, {}, function(_, _, showMenu)
             local conditionPickerItems = self:getConditionItemsForTarget(targetType)
 
             local configItem = MultiPickerConfigItem.new("Conditions", L{}, conditionPickerItems:map(function(conditionClass)
@@ -102,11 +103,15 @@ function GambitConditionSettingsMenuItem:getAddConditionMenuItem(parentMenuItem)
                 local conditionClass = self:getFileForCondition(conditionPickerItems[selectedIndexPaths[1].row])
                 local newCondition = conditionClass.new()
 
-                self.conditions:append(GambitCondition.new(newCondition, targetType))
+                self:getConditions():append(GambitCondition.new(newCondition, targetType))
 
                 self.trustSettings:saveSettings(true)
 
                 addon_system_message(string.format("Added condition: %s %s.", targetType, newCondition:tostring()))
+
+                if showMenu then
+                    showMenu(parentMenuItem)
+                end
             end)
             return chooseConditionView
         end, "Conditions", string.format("Add a new condition for %s.", targetType))
@@ -147,7 +152,7 @@ function GambitConditionSettingsMenuItem:getRemoveConditionMenuItem()
         if selectedIndexPath then
             local item = self.editConditionsView:getDataSource():itemAtIndexPath(selectedIndexPath)
             if item then
-                self.conditions:remove(selectedIndexPath.row)
+                self:getConditions():remove(selectedIndexPath.row)
 
                 self.editConditionsView:getDataSource():removeItem(selectedIndexPath)
 
@@ -195,17 +200,22 @@ end
 function GambitConditionSettingsMenuItem:getSelectedCondition()
     local cursorIndexPath = self.editConditionsView:getDelegate():getCursorIndexPath()
     if cursorIndexPath then
-        return self.conditions[cursorIndexPath.row]
+        return self:getConditions()[cursorIndexPath.row]
     end
     return nil
 end
 
 ---
--- Gets the list of conditions.
+-- Gets the list of conditions. Always returns the live list when a getter has
+-- been supplied via setConditions, so callers and internal mutations operate
+-- on the gambit's current conditions reference.
 --
 -- @treturn list List of conditions.
 --
 function GambitConditionSettingsMenuItem:getConditions()
+    if self._conditionsGetter then
+        return self._conditionsGetter()
+    end
     return self.conditions
 end
 
@@ -229,12 +239,20 @@ function GambitConditionSettingsMenuItem:getTargetTypes()
 end
 
 ---
--- Sets the list of conditions.
+-- Sets the list of conditions, or a getter function that returns the live list.
+-- Passing a function lets the menu re-read the list on every operation, so it
+-- stays in sync if the owning gambit's conditions field is reassigned (e.g. by
+-- a role's set_gambit_settings reload after a save).
 --
--- @tparam list List of conditions.
+-- @tparam list|function List of conditions, or a function returning one.
 --
 function GambitConditionSettingsMenuItem:setConditions(conditions)
-    self.conditions = conditions
+    if type(conditions) == 'function' then
+        self._conditionsGetter = conditions
+    else
+        self._conditionsGetter = nil
+        self.conditions = conditions
+    end
 end
 
 function GambitConditionSettingsMenuItem:getFileForCondition(conditionClass)
@@ -261,6 +279,7 @@ function GambitConditionSettingsMenuItem:getEditableConditionClasses()
         [HasBuffCondition.__type] = "has_buff_condition",
         [ZoneCondition.__type] = "zone",
         [MainJobCondition.__type] = "main_job",
+        [SubJobCondition.__type] = "sub_job",
         [JobCondition.__type] = "job",
         [ReadyAbilityCondition.__type] = "ready_ability",
         [FinishAbilityCondition.__type] = "finish_ability",
@@ -273,6 +292,7 @@ function GambitConditionSettingsMenuItem:getEditableConditionClasses()
         [NumResistsCondition.__type] = "num_resists",
         [SkillchainPropertyCondition.__type] = "skillchain_property",
         [HasDazeCondition.__type] = "has_daze",
+        [HasRaiseCondition.__type] = "has_raise",
         [TargetNameCondition.__type] = "target_name",
         [CombatSkillsCondition.__type] = "combat_skills",
         [StrategemCountCondition.__type] = "strategem_count",
@@ -290,6 +310,10 @@ function GambitConditionSettingsMenuItem:getEditableConditionClasses()
         [HasSongsCondition.__type] = "has_songs",
         [ClusterHitPointsPercentRangeCondition.__type] = "cluster_hpp_range",
         [PartyHasMainJobCondition.__type] = "party_has_main_job",
+        [PartyHppRangeCondition.__type] = "party_hpp_range",
+        [PartyMemberCountCondition.__type] = "party_member_count",
+        [SkillchainAbilityCondition.__type] = "skillchain_ability",
+        [HasKeyItemsCondition.__type] = "has_key_items"
     }
 end
 

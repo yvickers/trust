@@ -118,6 +118,8 @@ function Condition.defaultSerializableConditionClasses()
         MinTacticalPointsCondition.__class,
         MaxDistanceCondition.__class,
         HasBuffCondition.__class,
+        HasKeyItemsCondition.__class,
+        HasRaiseCondition.__class,
         ZoneCondition.__class,
         MainJobCondition.__class,
         SubJobCondition.__class,
@@ -152,6 +154,9 @@ function Condition.defaultSerializableConditionClasses()
         ClusterHitPointsPercentRangeCondition.__class,
         PetDistanceCondition.__class,
         PartyHasMainJobCondition.__class,
+        PartyHppRangeCondition.__class,
+        SkillchainAbilityCondition.__class,
+        PartyMemberCountCondition.__class,
     }
 end
 
@@ -166,7 +171,9 @@ function Condition.check_conditions(conditions, param, ...)
             is_satisfied = not is_satisfied
         end
         if not is_satisfied then
-            logger.error(condition.__class, "Failed", condition:tostring(), target_index)
+            if logger.isEnabled then
+                logger.error(condition.__class, "Failed", condition:tostring(), target_index)
+            end
             return false
         end
     end

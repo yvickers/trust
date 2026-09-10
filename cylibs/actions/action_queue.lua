@@ -10,8 +10,12 @@ require('queues')
 
 local DisposeBag = require('cylibs/events/dispose_bag')
 local Event = require('cylibs/events/Luvent')
+local JobAbilityAction = require('cylibs/actions/job_ability')
 local RangedAttackAction = require('cylibs/actions/ranged_attack')
+local SequenceAction = require('cylibs/actions/sequence')
+local SpellAction = require('cylibs/actions/spell')
 local Timer = require('cylibs/util/timers/timer')
+local WeaponSkillAction = require('cylibs/actions/weapon_skill')
 
 local Action = require('cylibs/actions/action')
 
@@ -84,7 +88,7 @@ function ActionQueue.new(completion, is_priority_queue, max_size, debugging_enab
 			end
 
 			if self.forced_delay_time > self.next_action_time then
-				self.forced_delay_time = self.forced_delay_time - self.next_action_time
+				--self.forced_delay_time = self.forced_delay_time - self.next_action_time
 			end
 		end), WindowerEvents.Action)
 
@@ -146,7 +150,7 @@ function ActionQueue:perform_next_action()
 	end
 
 	local next_action = self.queue:pop()
-	if next_action ~= nil and next_action:can_perform() then
+	if next_action ~= nil and next_action:can_perform() and next_action:validate() then
 		local forced_delay = self:get_forced_delay(next_action)
 		if forced_delay > 0 then
 			local display_name = next_action.display_name
@@ -204,7 +208,6 @@ function ActionQueue:push_action(action, check_duplicates)
 		action:destroy()
 		return
 	end
-
 	self.queue:push(action)
 
 	if self.is_priority_queue and self.queue:length() > 1 then
@@ -399,8 +402,10 @@ function ActionQueue:get_actions()
 end
 
 function ActionQueue:has_action(identifier)
-	local current_actions = self:get_actions()
-	for action in current_actions:it() do
+	if self.current_action and self.current_action:getidentifier() == identifier then
+		return true
+	end
+	for action in self.queue:it() do
 		if action:getidentifier() == identifier then
 			return true
 		end

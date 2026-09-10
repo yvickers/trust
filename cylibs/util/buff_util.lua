@@ -71,8 +71,39 @@ local debuffs = T{
 	[702] = S{202}, -- sluggish daze
 	[703] = S{202}, -- sluggish daze
 	[704] = S{202}, -- sluggish daze
+	[386] = S{201}, -- lethargic daze
+	[387] = S{201}, -- lethargic daze
+	[388] = S{201}, -- lethargic daze
+	[389] = S{201}, -- lethargic daze
+	[390] = S{201}, -- lethargic daze
+	[705] = S{201}, -- lethargic daze
+	[706] = S{201}, -- lethargic daze
+	[707] = S{201}, -- lethargic daze
+	[708] = S{201}, -- lethargic daze
+	[709] = S{201}, -- lethargic daze
+	[396] = S{203}, -- weakened daze
+	[397] = S{203}, -- weakened daze
+	[398] = S{203}, -- weakened daze
+	[399] = S{203}, -- weakened daze
+	[400] = S{203}, -- weakened daze
+	[710] = S{203}, -- weakened daze
+	[711] = S{203}, -- weakened daze
+	[712] = S{203}, -- weakened daze
+	[713] = S{203}, -- weakened daze
+	[714] = S{203}, -- weakened daze
+	[448] = S{312}, -- bewildered daze
+	[449] = S{312}, -- bewildered daze
+	[450] = S{312}, -- bewildered daze
+	[451] = S{312}, -- bewildered daze
+	[452] = S{312}, -- bewildered daze
+	[715] = S{312}, -- bewildered daze
+	[716] = S{312}, -- bewildered daze
+	[717] = S{312}, -- bewildered daze
+	[718] = S{312}, -- bewildered daze
+	[719] = S{312}, -- bewildered daze
 	[404] = S{843,844,883}, --Magic Evasion Down
 	[597] = S{879}, --inundation
+	[23] = S{}, -- Kaustra
 }
 
 local aura_debuff_names = L{'Defense Down','Magic Atk. Down','Magic Def. Down','Accuracy Down','Evasion Down','Magic Acc. Down','Magic Evasion Down','disease'}
@@ -227,7 +258,7 @@ function buff_util.buffs_overwritten(buff_id, buff_ids)
 	buff_ids = buff_ids or L{}
 	local spells = L(res.spells:with_all('status', buff_id)):map(function(spell) return L(spell.overwrites or {}) end):flatten()
 
-	local statuses = S(spells:map(function(spell_id) return res.spells:with('id', spell_id).status end)):filter(function(status_id) return status_id ~= buff_id and buff_ids:contains(status_id)  end)
+	local statuses = S(spells:map(function(spell_id) return res.spells[spell_id].status end)):filter(function(status_id) return status_id ~= buff_id and buff_ids:contains(status_id)  end)
 	return statuses
 end
 
@@ -295,7 +326,7 @@ end
 -- @tparam number buff_id Buff id (see buffs.lua)
 -- @treturn SpellMetadata Full metadata for the spell (see spells.lua)
 function buff_util.spell_for_buff(buff_id)
-	local buff = res.buffs:with('id', buff_id)
+	local buff = res.buffs[buff_id]
 	if buff then
 		return res.spells:with('status', buff.id)
 	end
@@ -316,7 +347,7 @@ function buff_util.buff_for_job_ability(job_ability_id)
 		job_ability = job_abilities_ext:with('id', job_ability_id)
 	end
 	if job_ability and job_ability.status then
-		return res.buffs:with('id', job_ability.status)
+		return res.buffs[job_ability.status]
 	end
 	return nil
 end

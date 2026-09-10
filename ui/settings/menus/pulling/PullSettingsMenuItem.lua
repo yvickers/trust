@@ -9,6 +9,9 @@ local MenuItem = require('cylibs/ui/menu/menu_item')
 local ModesMenuItem = require('ui/settings/menus/ModesMenuItem')
 local MultiPickerConfigItem = require('ui/settings/editors/config/MultiPickerConfigItem')
 local PullActionMenuItem = require('ui/settings/menus/pulling/PullActionMenuItem')
+local PullTargetIDsMenuItem = require('ui/settings/menus/pulling/PullTargetIDsMenuItem')
+local PullTargetsMenuItem = require('ui/settings/menus/pulling/PullTargetsMenuItem')
+local TextInputConfigItem = require('ui/settings/editors/config/TextInputConfigItem')
 
 local PullSettingsMenuItem = setmetatable({}, {__index = MenuItem })
 PullSettingsMenuItem.__index = PullSettingsMenuItem
@@ -23,7 +26,9 @@ end
 function PullSettingsMenuItem.new(abilities, trust, job_name_short, trust_settings, trust_settings_mode, trust_mode_settings)
     local self = setmetatable(MenuItem.new(L{
         ButtonItem.default('Targets', 18),
+        ButtonItem.default('Target IDs', 18),
         ButtonItem.default('Actions', 18),
+        ButtonItem.default('Blacklist', 18),
         ButtonItem.localized('Modes', i18n.translate("Modes")),
         ButtonItem.default('Config', 18),
     }, {
@@ -51,50 +56,41 @@ function PullSettingsMenuItem:destroy()
 end
 
 function PullSettingsMenuItem:reloadSettings()
-    self:setChildMenuItem("Targets", self:getTargetsMenuItem())
+    self:setChildMenuItem("Targets", PullTargetsMenuItem.new(self.trust_settings, self.trust_settings_mode))
+    self:setChildMenuItem("Target IDs", PullTargetIDsMenuItem.new(self.trust_settings, self.trust_settings_mode))
     self:setChildMenuItem("Actions", PullActionMenuItem.new(self.trust, self.trust_settings, self.trust_settings_mode))
+    self:setChildMenuItem("Blacklist", self:getBlacklistMenuItem())
     self:setChildMenuItem("Modes", self:getModesMenuItem())
     self:setChildMenuItem("Config", self:getConfigMenuItem())
 end
 
-function PullSettingsMenuItem:getTargetsMenuItem()
+function PullSettingsMenuItem:getBlacklistMenuItem()
     local chooseTargetsMenuItem = MenuItem.new(L{
         ButtonItem.localized('Confirm', i18n.translate('Button_Confirm')),
-        ButtonItem.default('Clear All', 18),
-    }, {
-        Clear = MenuItem.action(nil, "Targets", "Clear selected targets."),
-    },
+    }, {},
     function()
         local pullSettings = self.trust_settings:getSettings()[self.trust_settings_mode.value].PullSettings
 
-        local allMobs = S{}
-        local nearbyMobs = windower.ffxi.get_mob_array()
-        for _, mob in pairs(nearbyMobs) do
-            if mob.valid_target and mob.spawn_type == 16 then
-                allMobs:add(mob.name)
+        local blacklistSettings = {
+            Name = '',
+        }
+
+        local blacklistConfigEditor = ConfigEditor.new(self.trust_settings, blacklistSettings, L{
+            TextInputConfigItem.new('Name', '', 'Mob Name', function(_) return true end, 225)
+        })
+
+        self.dispose_bag:add(blacklistConfigEditor:onConfigChanged():addAction(function(newConfigSettings, _)
+            local mobName = newConfigSettings.Name
+            if mobName and #mobName > 0 then
+                pullSettings.Blacklist = pullSettings.Blacklist or L{}
+                pullSettings.Blacklist:append(mobName)
+
+                self.trust_settings:saveSettings()
             end
-        end
+        end), blacklistConfigEditor:onConfigChanged())
 
-        local configItem = MultiPickerConfigItem.new("Targets", L{}, L(allMobs), function(mobName)
-            return mobName
-        end)
-
-        local targetPickerView = FFXIPickerView.withConfig(configItem, true)
-
-        self.dispose_bag:add(targetPickerView:on_pick_items():addAction(function(_, newTargetNames)
-            targetPickerView:getDelegate():deselectAllItems()
-
-            if newTargetNames:length() > 0 then
-                pullSettings.Targets = L(S(pullSettings.Targets + newTargetNames))
-
-                self.trust_settings:saveSettings(true)
-
-                addon_message(260, '('..windower.ffxi.get_player().name..') '.."Alright, I've updated my list of enemies to pull!")
-            end
-        end), targetPickerView:on_pick_items())
-
-        return targetPickerView
-    end, "Targets", "Choose which enemies to pull.")
+        return blacklistConfigEditor
+    end, "Blacklist", "Choose which enemies to avoid pulling.")
 
     local targetsMenuItem = MenuItem.new(L{
         ButtonItem.default('Add', 18),
@@ -102,35 +98,35 @@ function PullSettingsMenuItem:getTargetsMenuItem()
     }, {
         Add = chooseTargetsMenuItem,
         Remove = MenuItem.action(function()
-            if self.pullTargetsEditor then
-                local cursorIndexPath = self.pullTargetsEditor:getDelegate():getCursorIndexPath()
+            if self.pullBlacklistEditor then
+                local cursorIndexPath = self.pullBlacklistEditor:getDelegate():getCursorIndexPath()
                 if cursorIndexPath then
-                    local currentTargets = self.trust_settings:getSettings()[self.trust_settings_mode.value].PullSettings.Targets
+                    local currentTargets = self.trust_settings:getSettings()[self.trust_settings_mode.value].PullSettings.Blacklist
                     currentTargets:remove(cursorIndexPath.row)
 
-                    self.pullTargetsEditor:getDataSource():removeItem(cursorIndexPath)
+                    self.pullBlacklistEditor:getDataSource():removeItem(cursorIndexPath)
 
                     self.trust_settings:saveSettings(true)
 
-                    addon_message(260, '('..windower.ffxi.get_player().name..') '.."Alright, I won't pull this enemy anymore!")
+                    addon_message(260, '('..windower.ffxi.get_player().name..') '.."Alright, I've removed this enemy from my naughty list!")
                 end
             end
-        end, "Targets", "Remove selected target from list of enemies to pull.", false, function()
+        end, "Blacklist", "Remove selected target from the blacklist.", false, function()
             return self.trust_settings:getSettings()[self.trust_settings_mode.value].PullSettings.Targets:length() > 0
         end),
     },
     function()
-        local currentTargets = self.trust_settings:getSettings()[self.trust_settings_mode.value].PullSettings.Targets
+        local currentTargets = self.trust_settings:getSettings()[self.trust_settings_mode.value].PullSettings.Blacklist
 
-        local configItem = MultiPickerConfigItem.new("Targets", L{}, currentTargets, function(targetName)
+        local configItem = MultiPickerConfigItem.new("Blacklist", L{}, currentTargets, function(targetName)
             return targetName
         end)
 
-        self.pullTargetsEditor = FFXIPickerView.new(L{ configItem }, false, FFXIClassicStyle.WindowSize.Editor.ConfigEditor)
-        self.pullTargetsEditor:setAllowsCursorSelection(true)
+        self.pullBlacklistEditor = FFXIPickerView.new(L{ configItem }, false, FFXIClassicStyle.WindowSize.Editor.ConfigEditor)
+        self.pullBlacklistEditor:setAllowsCursorSelection(true)
 
-        return self.pullTargetsEditor
-    end, "Targets", "Choose which enemies to pull.")
+        return self.pullBlacklistEditor
+    end, "Blacklist", "Choose which enemies to avoid pulling.")
 
     chooseTargetsMenuItem:setChildMenuItem("Confirm", MenuItem.action(function(menu)
         menu:showMenu(targetsMenuItem)
@@ -152,17 +148,20 @@ function PullSettingsMenuItem:getConfigMenuItem()
 
         local pullSettings = T{
             Distance = allSettings.PullSettings.Distance,
+            Delay = allSettings.PullSettings.Delay or 0,
             RandomizeTarget = allSettings.PullSettings.RandomizeTarget or false
         }
 
         local configItems = L{
             ConfigItem.new('Distance', 0, 50, 1, function(value) return value.." yalms" end, "Detection Distance"),
+            ConfigItem.new('Delay', 0, 50, 1, function(value) return value.."s" end, "Delay Between Pulls"),
             BooleanConfigItem.new('RandomizeTarget', "Randomize Target"),
         }
         local pullConfigEditor = ConfigEditor.new(self.trust_settings, pullSettings, configItems, infoView)
 
         self.dispose_bag:add(pullConfigEditor:onConfigChanged():addAction(function(newSettings, _)
             allSettings.PullSettings.Distance = newSettings.Distance
+            allSettings.PullSettings.Delay = newSettings.Delay
             allSettings.PullSettings.RandomizeTarget = newSettings.RandomizeTarget
             self.trust_settings:saveSettings(true)
         end), pullConfigEditor:onConfigChanged())

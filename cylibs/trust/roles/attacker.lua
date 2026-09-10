@@ -21,12 +21,16 @@ state.AutoEngageMode:set_description('Off', "Manually engage and disengage.")
 state.AutoEngageMode:set_description('Always', "Automatically engage when targeting a claimed mob.")
 state.AutoEngageMode:set_description('Mirror', "Mirror the engage status of the party member you are assisting.")
 
-function Attacker.new(action_queue)
+state.AutoDisengageMode = M{['description'] = 'Auto Disengage Mode', 'Off', 'Auto'}
+state.AutoDisengageMode:set_description('Off', "Do not disengage when unable to attack a mob.")
+state.AutoDisengageMode:set_description('Auto', "Automatically disengage when unable to attack a mob.")
+
+function Attacker.new(action_queue, attacker_settings)
     local self = setmetatable(Gambiter.new(action_queue, { Gambits = L{} }, L{ state.AutoEngageMode, state.AutoPullMode }), Attacker)
 
     self.dispose_bag = DisposeBag.new()
 
-    self:set_attacker_settings({})
+    self:set_attacker_settings(attacker_settings)
 
     return self
 end
@@ -43,21 +47,40 @@ function Attacker:on_add()
     self.dispose_bag:add(self:get_party():on_party_target_change():addAction(function(_, _)
         self:check_gambits()
     end), self:get_party():on_party_target_change())
+
+    self.dispose_bag:add(WindowerEvents.ActionMessage:addAction(function(actor_id, target_id, actor_index, target_index, message_id, param_1, param_2, param_3)
+        if state.AutoDisengageMode.value == 'Off' then
+            return
+        end
+        if actor_id == windower.ffxi.get_player().id then
+            if message_id == 4 or message_id == 5 then
+                -- 4: out of range, 5: unable to see
+                self.num_unable_attack = self.num_unable_attack + 1
+                if self.num_unable_attack > 5 then
+                    self.action_queue:push_action(Disengage.new():to_action())
+                end
+            end
+        end
+    end), WindowerEvents.ActionMessage)
 end
 
 function Attacker:target_change(target_index)
     Gambiter.target_change(self, target_index)
 
+    self.num_unable_attack = 0
+
     self:check_gambits()
 end
 
-function Attacker:set_attacker_settings(_)
+function Attacker:set_attacker_settings(attacker_settings)
+    self.engage_distance = attacker_settings.EngageDistance or 30
+
     local gambit_settings = {
         Gambits = L{
             Gambit.new(GambitTarget.TargetType.Enemy, L{
                 GambitCondition.new(ModeCondition.new('AutoEngageMode', 'Always'), GambitTarget.TargetType.Self),
                 GambitCondition.new(StatusCondition.new('Idle'), GambitTarget.TargetType.Self),
-                GambitCondition.new(MaxDistanceCondition.new(30), GambitTarget.TargetType.Enemy),
+                GambitCondition.new(MaxDistanceCondition.new(self.engage_distance), GambitTarget.TargetType.Enemy),
                 GambitCondition.new(AggroedCondition.new(), GambitTarget.TargetType.Enemy),
                 GambitCondition.new(ConditionalCondition.new(L{ UnclaimedCondition.new(), PartyClaimedCondition.new(true) }, Condition.LogicalOperator.Or), GambitTarget.TargetType.Enemy),
                 GambitCondition.new(ValidTargetCondition.new(alter_ego_util.untargetable_alter_egos()), GambitTarget.TargetType.Enemy),
@@ -67,7 +90,7 @@ function Attacker:set_attacker_settings(_)
                 GambitCondition.new(IsAssistTargetCondition.new(), GambitTarget.TargetType.Ally),
                 GambitCondition.new(StatusCondition.new('Engaged'), GambitTarget.TargetType.Ally),
                 GambitCondition.new(StatusCondition.new('Idle'), GambitTarget.TargetType.Self),
-                GambitCondition.new(MaxDistanceCondition.new(30), GambitTarget.TargetType.Enemy),
+                GambitCondition.new(MaxDistanceCondition.new(self.engage_distance), GambitTarget.TargetType.Enemy),
                 GambitCondition.new(ConditionalCondition.new(L{ UnclaimedCondition.new(), PartyClaimedCondition.new(true) }, Condition.LogicalOperator.Or), GambitTarget.TargetType.Enemy),
                 GambitCondition.new(ValidTargetCondition.new(alter_ego_util.untargetable_alter_egos()), GambitTarget.TargetType.Enemy),
             }, Engage.new(), GambitTarget.TargetType.Enemy),
@@ -78,6 +101,7 @@ function Attacker:set_attacker_settings(_)
                 GambitCondition.new(StatusCondition.new('Engaged'), GambitTarget.TargetType.Self),
             }, Disengage.new(), GambitTarget.TargetType.Self),
             Gambit.new(GambitTarget.TargetType.Enemy, L{
+                GambitCondition.new(NotCondition.new(L{ ModeCondition.new('AutoEngageMode', 'Off') }), GambitTarget.TargetType.Self),
                 GambitCondition.new(NotCondition.new(L{ ModeCondition.new('PullActionMode', 'Target') }), GambitTarget.TargetType.Self),
                 GambitCondition.new(StatusCondition.new('Idle'), GambitTarget.TargetType.Self),
                 GambitCondition.new(TargetMismatchCondition.new(), GambitTarget.TargetType.Self),

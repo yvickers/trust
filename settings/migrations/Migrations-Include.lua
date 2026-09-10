@@ -986,44 +986,6 @@ function Migration_v27:getDescription()
 end
 
 ---------------------------
--- Migrates skillchains to gambits.
--- @class module
--- @name Migration_v28
-
-local Migration_v28 = setmetatable({}, { __index = Migration })
-Migration_v28.__index = Migration_v28
-Migration_v28.__class = "Migration_v28"
-
-function Migration_v28.new()
-    local self = setmetatable(Migration.new(), Migration_v28)
-    return self
-end
-
-function Migration_v28:shouldPerform(_, _, weaponSkillSettings)
-    return weaponSkillSettings ~= nil
-end
-
-function Migration_v28:perform(_, _, weaponSkillSettings)
-    local modeNames = list.subtract(L(T(weaponSkillSettings:getSettings()):keyset()), L{'Version','Migrations'})
-    for modeName in modeNames:it() do
-        local currentSettings = weaponSkillSettings:getSettings()[modeName]
-        currentSettings.Skillchain = currentSettings.Skillchain:map(function(ability)
-            if ability.__type == Gambit.__type then
-                return ability
-            else
-                local gambit = Gambit.new("Enemy", ability.conditions, ability, "Self", L{"Skillchain"})
-                ability.conditions = L{}
-                return gambit
-            end
-        end)
-    end
-end
-
-function Migration_v28:getDescription()
-    return "Migrating weapon skills settings."
-end
-
----------------------------
 -- Migrates skillchains to gambit structure.
 -- @class module
 -- @name Migration_v29
@@ -1045,10 +1007,9 @@ function Migration_v29:perform(_, _, weaponSkillSettings)
     local modeNames = list.subtract(L(T(weaponSkillSettings:getSettings()):keyset()), L{'Version','Migrations'})
     for modeName in modeNames:it() do
         local currentSettings = weaponSkillSettings:getSettings()[modeName]
-        if currentSettings.Skillchain.Gambits == nil then
-            currentSettings.Skillchain = {
-                Gambits = currentSettings.Skillchain
-            }
+        if currentSettings.Skillchain == nil or currentSettings.Skillchain.Gambits == nil then
+            local defaultSettings = T(weaponSkillSettings:getDefaultSettings()):clone().Default
+            currentSettings.Skillchain = defaultSettings.Skillchain
         end
     end
 end
@@ -1270,6 +1231,193 @@ function Migration_v35:getDescription()
     return "Creating status removal settings."
 end
 
+---------------------------
+-- Creates CombatSettings.
+-- @class module
+-- @name Migration_v36
+
+local Migration_v36 = setmetatable({}, { __index = Migration })
+Migration_v36.__index = Migration_v36
+Migration_v36.__class = "Migration_v36"
+
+function Migration_v36.new()
+    local self = setmetatable(Migration.new(), Migration_v36)
+    return self
+end
+
+function Migration_v36:shouldPerform(trustSettings, _, _)
+    local defaultSettings = T(trustSettings:getDefaultSettings()).Default
+    return defaultSettings.CombatSettings ~= nil and trustSettings:getSettings().Default.CombatSettings == nil
+end
+
+function Migration_v36:perform(trustSettings, _, _)
+    local modeNames = list.subtract(L(T(trustSettings:getSettings()):keyset()), L{'Version','Migrations'})
+    for modeName in modeNames:it() do
+        local defaultSettings = T(trustSettings:getDefaultSettings()):clone()
+        local currentSettings = trustSettings:getSettings()[modeName]
+        if currentSettings.CombatSettings == nil then
+            currentSettings.CombatSettings = defaultSettings.Default.CombatSettings
+        end
+    end
+end
+
+function Migration_v36:getDescription()
+    return "Creating combat settings."
+end
+
+---------------------------
+-- Adds engage distance.
+-- @class module
+-- @name Migration_v37
+
+local Migration_v37 = setmetatable({}, { __index = Migration })
+Migration_v37.__index = Migration_v37
+Migration_v37.__class = "Migration_v37"
+
+function Migration_v37.new()
+    local self = setmetatable(Migration.new(), Migration_v37)
+    return self
+end
+
+function Migration_v37:shouldPerform(trustSettings, _, _)
+    return trustSettings:getSettings().Default.CombatSettings ~= nil
+end
+
+function Migration_v37:perform(trustSettings, _, _)
+    local modeNames = list.subtract(L(T(trustSettings:getSettings()):keyset()), L{'Version','Migrations'})
+    for modeName in modeNames:it() do
+        local defaultSettings = T(trustSettings:getDefaultSettings()):clone()
+        local currentSettings = trustSettings:getSettings()[modeName]
+        currentSettings.CombatSettings.EngageDistance = currentSettings.CombatSettings.EngageDistance or defaultSettings.Default.CombatSettings.EngageDistance
+    end
+end
+
+function Migration_v37:getDescription()
+    return "Update combat settings."
+end
+
+---------------------------
+-- Adds geomancy job abilities and full circle distance.
+-- @class module
+-- @name Migration_v38
+
+local Migration_v38 = setmetatable({}, { __index = Migration })
+Migration_v38.__index = Migration_v38
+Migration_v38.__class = "Migration_v38"
+
+function Migration_v38.new()
+    local self = setmetatable(Migration.new(), Migration_v38)
+    return self
+end
+
+function Migration_v38:shouldPerform(trustSettings, _, _)
+    return trustSettings:getSettings().Default.Geomancy ~= nil
+end
+
+function Migration_v38:perform(trustSettings, _, _)
+    local modeNames = list.subtract(L(T(trustSettings:getSettings()):keyset()), L{'Version','Migrations'})
+    for modeName in modeNames:it() do
+        local defaultSettings = T(trustSettings:getDefaultSettings()):clone()
+        local currentSettings = trustSettings:getSettings()[modeName]
+        for settingsKey in L{ 'FullCircleDistance', 'BlazeOfGlory', 'EclipticAttrition', 'LastingEmanation', 'Dematerialize' }:it() do
+            currentSettings.Geomancy[settingsKey] = currentSettings.Geomancy[settingsKey] or defaultSettings.Default.Geomancy[settingsKey]
+        end
+    end
+end
+
+function Migration_v38:getDescription()
+    return "Update geomancy settings."
+end
+
+local Migration_v39 = setmetatable({}, { __index = Migration })
+Migration_v39.__index = Migration_v39
+Migration_v39.__class = "Migration_v39"
+
+function Migration_v39.new()
+    local self = setmetatable(Migration.new(), Migration_v39)
+    return self
+end
+
+function Migration_v39:shouldPerform(trustSettings, _, _)
+    return trustSettings:getSettings().Default.PullSettings.Blacklist == nil
+end
+
+function Migration_v39:perform(trustSettings, _, _)
+    local modeNames = list.subtract(L(T(trustSettings:getSettings()):keyset()), L{'Version','Migrations'})
+    for modeName in modeNames:it() do
+        local currentSettings = trustSettings:getSettings()[modeName].PullSettings
+        currentSettings.Blacklist = L{}
+    end
+end
+
+function Migration_v39:getDescription()
+    return "Add pull blacklist."
+end
+
+---------------------------
+-- Adds TargetIds to pull settings.
+-- @class module
+-- @name Migration_v40
+
+local Migration_v40 = setmetatable({}, { __index = Migration })
+Migration_v40.__index = Migration_v40
+Migration_v40.__class = "Migration_v40"
+
+function Migration_v40.new()
+    local self = setmetatable(Migration.new(), Migration_v40)
+    return self
+end
+
+function Migration_v40:shouldPerform(trustSettings, _, _)
+    return trustSettings:getSettings().Default.PullSettings.TargetIds == nil
+end
+
+function Migration_v40:perform(trustSettings, _, _)
+    local modeNames = list.subtract(L(T(trustSettings:getSettings()):keyset()), L{'Version','Migrations'})
+    for modeName in modeNames:it() do
+        local currentSettings = trustSettings:getSettings()[modeName].PullSettings
+        currentSettings.TargetIds = L{}
+    end
+end
+
+function Migration_v40:getDescription()
+    return "Add pull target ids."
+end
+
+local Migration_v41 = setmetatable({}, { __index = Migration })
+Migration_v41.__index = Migration_v41
+Migration_v41.__class = 'Migration_v41'
+
+function Migration_v41.new()
+    local self = setmetatable(Migration.new(), Migration_v41)
+    return self
+end
+
+function Migration_v41:shouldPerform(trustSettings, _, _)
+    local modeNames = list.subtract(L(T(trustSettings:getSettings()):keyset()), L{'Version','Migrations'})
+    for modeName in modeNames:it() do
+        if trustSettings:getSettings()[modeName].RoleSettings == nil then
+            return true
+        end
+    end
+    return false
+end
+
+function Migration_v41:perform(trustSettings, _, _)
+    local modeNames = list.subtract(L(T(trustSettings:getSettings()):keyset()), L{'Version','Migrations'})
+    for modeName in modeNames:it() do
+        local currentSettings = trustSettings:getSettings()[modeName]
+        if currentSettings.RoleSettings == nil then
+            local defaultSettings = T(trustSettings:getDefaultSettings()):clone()
+            currentSettings.RoleSettings = defaultSettings.Default.RoleSettings
+        end
+    end
+end
+
+function Migration_v41:getDescription()
+    return 'Add role priority settings.'
+end
+
 return {
     Migration_v1 = Migration_v1,
     Migration_v2 = Migration_v2,
@@ -1297,7 +1445,6 @@ return {
     Migration_v25 = Migration_v25,
     Migration_v26 = Migration_v26,
     Migration_v27 = Migration_v27,
-    Migration_v28 = Migration_v28,
     Migration_v29 = Migration_v29,
     Migration_v30 = Migration_v30,
     Migration_v31 = Migration_v31,
@@ -1305,5 +1452,11 @@ return {
     Migration_v33 = Migration_v33,
     Migration_v34 = Migration_v34,
     Migration_v35 = Migration_v35,
+    Migration_v36 = Migration_v36,
+    Migration_v37 = Migration_v37,
+    Migration_v38 = Migration_v38,
+    Migration_v39 = Migration_v39,
+    Migration_v40 = Migration_v40,
+    Migration_v41 = Migration_v41,
 }
 

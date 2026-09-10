@@ -97,10 +97,11 @@ function TrustSettings:reloadSettings()
 end
 
 function TrustSettings:getSettingsFilePath(default_settings)
-    local file_prefix = windower.addon_path..self.settingsFolder..self.jobNameShort
     if default_settings then
+        local file_prefix = windower.addon_path..'settings/default/'..self.jobNameShort
         return file_prefix..'.lua'
     else
+        local file_prefix = windower.addon_path..self.settingsFolder..self.jobNameShort
         return file_prefix..'_'..self.playerName..'.lua'
     end
 end
@@ -136,7 +137,7 @@ function TrustSettings:copySettings(override)
         if playerSettings:exists() then
             self:backupSettings(filePath)
         end
-        local defaultSettings = FileIO.new(self.settingsFolder..self.jobNameShort..'.lua')
+        local defaultSettings = FileIO.new('settings/default/'..self.jobNameShort..'.lua')
         playerSettings:write(defaultSettings:read())
 
         --addon_message(207, 'Copied default settings to '..filePath)

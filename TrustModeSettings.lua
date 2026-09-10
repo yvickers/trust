@@ -74,11 +74,12 @@ function TrustModeSettings:reloadSettings()
 end
 
 function TrustModeSettings:getSettingsFilePath()
+    local default_file_prefix = windower.addon_path..'settings/default/modes/'..self.jobNameShort
     local file_prefix = windower.addon_path..'data/modes/'..self.jobNameShort
     if windower.file_exists(file_prefix..'_'..self.playerName..'.lua') then
         return file_prefix..'_'..self.playerName..'.lua'
-    elseif windower.file_exists(file_prefix..'.lua') then
-        return file_prefix..'.lua'
+    elseif windower.file_exists(default_file_prefix..'.lua') then
+        return default_file_prefix..'.lua'
     end
     addon_message(100, 'No default trust modes for '..(self.jobNameShort or 'nil'))
     return nil
@@ -161,7 +162,7 @@ function TrustModeSettings:copySettings()
     local filePath = 'data/modes/'..self.jobNameShort..'_'..self.playerName..'.lua'
     local playerSettings = FileIO.new(filePath)
     if not playerSettings:exists() then
-        local defaultSettings = FileIO.new('data/modes/'..self.jobNameShort..'.lua')
+        local defaultSettings = FileIO.new('settings/default/modes/'..self.jobNameShort..'.lua')
         playerSettings:write(defaultSettings:read())
 
         --addon_message(207, 'Copied mode settings to '..filePath)

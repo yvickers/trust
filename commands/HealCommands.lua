@@ -1,3 +1,5 @@
+local gambit_commands = require('cylibs/trust/commands/gambit_commands')
+local GambitTarget = require('cylibs/gambits/gambit_target')
 local PickerConfigItem = require('ui/settings/editors/config/PickerConfigItem')
 
 local TrustCommands = require('cylibs/trust/commands/trust_commands')
@@ -5,15 +7,17 @@ local HealCommands = setmetatable({}, {__index = TrustCommands })
 HealCommands.__index = HealCommands
 HealCommands.__class = "HealCommands"
 
-function HealCommands.new(trust)
+function HealCommands.new(trust, trust_settings)
     local self = setmetatable(TrustCommands.new(), HealCommands)
 
     self.trust = trust
+    self.trust_settings = trust_settings
 
     self:add_command('default', function(_) return self:handle_toggle_mode('AutoHealMode', 'Auto', 'Off')  end, 'Heal self and party')
     self:add_command('auto', function(_) return self:handle_set_mode('AutoHealMode', 'Auto')  end, 'Heal self and party')
     self:add_command('emergency', function(_) return self:handle_set_mode('AutoHealMode', 'Emergency')  end, 'Heal self and party using Emergency threshold')
     self:add_command('off', function(_) return self:handle_set_mode('AutoHealMode', 'Off')  end, 'Do not heal self and party')
+    self:add_command('alliance', self.handle_toggle_alliance, 'Toggle healing alliance members')
 
     self:add_command('blacklistall', self.handle_blacklist_all, 'Toggle healing for groups of party or alliance members', L{
         PickerConfigItem.new('group_name', 'Alter Egos', L{ 'Alter Egos' }, nil, "Group Name"),
@@ -34,6 +38,17 @@ function HealCommands.new(trust)
 
     update_commands(trust:get_party():get_party_members(true))
 
+    gambit_commands.register(self, {
+        noun = self:get_command_name(),
+        trust = trust,
+        default_target = GambitTarget.TargetType.Ally,
+        gambits = function(commands)
+            local settings = commands.trust_settings:getSettings()[state.MainTrustSettingsMode.value]
+            return settings and settings.CureSettings and settings.CureSettings.Gambits
+        end,
+        save = function(commands) commands.trust_settings:saveSettings(true) end,
+    })
+
     return self
 end
 
@@ -43,6 +58,20 @@ end
 
 function HealCommands:get_localized_command_name()
     return 'Heal'
+end
+
+function HealCommands:handle_toggle_alliance(_)
+    local healer = self.trust:role_with_type("healer")
+    if not healer then
+        return false, "No healer role is available"
+    end
+
+    local cure_settings = self.trust:get_trust_settings().CureSettings
+    cure_settings.IncludeAlliance = not (cure_settings.IncludeAlliance == true)
+
+    healer:set_heal_settings(cure_settings)
+
+    return true, "Alliance healing "..(cure_settings.IncludeAlliance and "enabled" or "disabled")
 end
 
 function HealCommands:handle_blacklist_all(_, ...)
@@ -141,12 +170,26 @@ local StatusRemovalCommands = setmetatable({}, {__index = TrustCommands })
 StatusRemovalCommands.__index = StatusRemovalCommands
 StatusRemovalCommands.__class = "StatusRemovalCommands"
 
-function StatusRemovalCommands.new()
+function StatusRemovalCommands.new(trust, trust_settings)
     local self = setmetatable(TrustCommands.new(), StatusRemovalCommands)
+
+    self.trust = trust
+    self.trust_settings = trust_settings
 
     -- AutoStatusRemovalMode
     self:add_command('default', self.handle_set_status_mode, 'Remove status effects from self and party', L{
         PickerConfigItem.new('mode_value', state.AutoStatusRemovalMode.value, L(state.AutoStatusRemovalMode:options()), nil, "Status Removals")
+    })
+    
+    gambit_commands.register(self, {
+        noun = self:get_command_name(),
+        trust = trust,
+        default_target = GambitTarget.TargetType.Ally,
+        gambits = function(commands)
+            local settings = commands.trust_settings:getSettings()[state.MainTrustSettingsMode.value]
+            return settings and settings.StatusRemovalSettings and settings.StatusRemovalSettings.Gambits
+        end,
+        save = function(commands) commands.trust_settings:saveSettings(true) end,
     })
 
     return self

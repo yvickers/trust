@@ -20,6 +20,9 @@ local all_song_buff_ids = L{
 }
 
 local equip_mods = {
+    [22305] = {0.2},            -- 'Loughnashade',   -- stage 3
+    [22306] = {0.3},            -- 'Loughnashade',   -- stage 4
+    [22307] = {0.4},            -- 'Loughnashade',   -- stage 5
     [18342] = {0.2},            -- 'Gjallarhorn',    -- 75
     [18577] = {0.2},            -- 'Gjallarhorn',    -- 80
     [18578] = {0.2},            -- 'Gjallarhorn',    -- 85
@@ -53,6 +56,7 @@ local equip_mods = {
     [27693] = {Paeon=0.1},      -- 'Brioso Roundlet +1',
     [23049] = {Paeon=0.1},      -- 'Brioso Roundlet +2',
     [23384] = {Paeon=0.1},      -- 'Brioso Roundlet +3',
+    [23904] = {Paeon=0.1},      -- 'Brioso Roundlet +4',
     [28074] = {0.1},            -- 'Mdk. Shalwar +1',
     [25865] = {0.12},           -- 'Inyanga Shalwar',
     [25866] = {0.15},           -- 'Inyanga Shalwar +1',
@@ -61,6 +65,7 @@ local equip_mods = {
     [28253] = {0.11},           -- 'Brioso Slippers +1',
     [23317] = {0.13},           -- 'Brioso Slippers +2',
     [23652] = {0.15},           -- 'Brioso Slippers +3',
+    [24084] = {0.15},           -- 'Brioso Slippers +4',
     [11073] = {Madrigal=0.1},   -- 'Aoidos\' Calot +2',
     [11093] = {0.1,Minuet=0.1}, -- 'Aoidos\' Hngrln. +2',
     [11113] = {March=0.1},      -- 'Ad. Mnchtte. +2',

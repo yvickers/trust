@@ -16,6 +16,9 @@ local zone_util = require('cylibs/util/zone_util')
 state.AutoFollowMode = M{['description'] = 'Follow', 'Off', 'Always', 'Path'}
 state.AutoFollowMode:set_description('Always', "Follow the party member set with // trust follow when not in battle.")
 
+state.AutoZoneMode = M{['description'] = 'Auto Zone', 'Auto', 'Off'  }
+state.AutoZoneMode:set_description('Auto', "Automatically zones when the party member you are following zones.")
+
 -- Event called when the follow target changes
 function Follower:on_follow_target_changed()
     return self.follow_target_changed
@@ -70,6 +73,9 @@ function Follower:on_add()
     self.dispose_bag:add(self:get_party():get_player():on_status_change():addAction(function(_, new_status, old_status)
         if new_status == 'Idle' and L{ 'Dead', 'Engaged' }:contains(old_status) then
             self:start_following(true)
+        end
+        if new_status == 'Event' then
+            self.walk_action_queue:clear()
         end
     end), self:get_party():get_player():on_status_change())
 
@@ -152,8 +158,9 @@ end
 -- @tparam string target_name Name of the target
 -- @treturn boolean True if the target can be followed
 function Follower:is_valid_target(target_name)
+    local do_mob_check = not IpcRelay.shared():is_connected(target_name or "")
     local target = self:get_alliance():get_alliance_member_named(target_name, true)
-    if target == nil or target:get_mob() == nil or target:get_name() == windower.ffxi.get_player().name or target:get_zone_id() ~= windower.ffxi.get_info().zone then
+    if target == nil or do_mob_check and target:get_mob() == nil or target:get_name() == windower.ffxi.get_player().name or target:get_zone_id() ~= windower.ffxi.get_info().zone then
         return false
     end
     if not IpcRelay.shared():is_connected(target_name) then
@@ -251,6 +258,9 @@ function Follower:set_follow_target(target)
             self:check_distance()
         end), self.follow_target:on_position_change())
         self.follow_target_dispose_bag:add(self.follow_target:on_zone_change():addAction(function(p, zone_id, x, y, z, zone_line, zone_type)
+            if state.AutoFollowMode.value == 'Off' then
+                return
+            end
             if zone_util.is_valid_zone_request(zone_line, zone_type) then
                 self:zone(zone_id, x, y, z, zone_line, zone_type)
             end
@@ -262,7 +272,7 @@ end
 
 function Follower:can_zone(zone_id)
     local player = self:get_party():get_player()
-    if not player or (os.time() - player:get_last_zone_time()) < self.zone_cooldown
+    if state.AutoZoneMode.value == 'Off' or state.AutoFollowMode.value == 'Off' or not player or (os.time() - player:get_last_zone_time()) < self.zone_cooldown
             or zone_id ~= windower.ffxi.get_info().zone or windower.ffxi.get_info().zone == 0 then
         return false
     end

@@ -9,13 +9,14 @@ local Debuffer = require('cylibs/trust/roles/debuffer')
 local Dispeler = require('cylibs/trust/roles/dispeler')
 local DisposeBag = require('cylibs/events/dispose_bag')
 local Frame = require('cylibs/ui/views/frame')
-local Healer = require('cylibs/trust/roles/healer_v2')
+local Healer = require('cylibs/trust/roles/healer')
 local MagicBurster = require('cylibs/trust/roles/magic_burster')
 local Nuker = require('cylibs/trust/roles/nuker')
 local Puller = require('cylibs/trust/roles/puller')
 local StatusRemover = require('cylibs/trust/roles/status_remover')
 
 state.AutoArtsMode = M{['description'] = 'Auto Arts Mode', 'Off', 'LightArts', 'DarkArts'}
+state.AutoSublimationMode = M{['description'] = 'Use Sublimation', 'Auto', 'Off'}
 
 function ScholarTrust.new(settings, action_queue, battle_settings, trust_settings)
     local job = Scholar.new(trust_settings)

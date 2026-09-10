@@ -104,12 +104,12 @@ end
 
 function SummonerTrust:get_inactive_buffs()
 	return self.party_buffs:filter(function(gambit)
-		return not buff_util.is_buff_active(buff_util.buff_for_job_ability(gambit:getAbility():get_job_ability_id()).id)
+		return gambit:isEnabled() and not buff_util.is_buff_active(buff_util.buff_for_job_ability(gambit:getAbility():get_job_ability_id()).id)
 	end)
 end
 
 function SummonerTrust:check_mp()
-	if windower.ffxi.get_player().vitals.mpp < 20 then
+	if state.AutoRestoreManaMode.value ~= 'Off' and windower.ffxi.get_player().vitals.mpp < 20 then
 		local actions = L{
 			JobAbilityAction.new(0, 0, 0, 'Release'),
 			SpellAction.new(0, 0, 0, spell_util.spell_id(self:get_job():get_spirit_for_current_day()), nil, self:get_player()),

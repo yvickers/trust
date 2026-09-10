@@ -22,6 +22,7 @@ function GeneralTrustCommands.new(trust, action_queue, addon_enabled, trust_mode
     self:add_command('commands', self.handle_command_list, 'See all Trust commands')
     self:add_command('debug', self.handle_debug, 'Show debug info')
     self:add_command('timeout', self.handle_timeout, 'Unload Trust after a specified number of minutes, // trust timeout num_minutes or // trust timeout clear')
+    self:add_command('item', self.handle_use_item, 'Use an item by name, // trust item item_name')
 
     -- State
     self:add_command('start', self.handle_start, 'Start Trust')
@@ -252,16 +253,26 @@ function GeneralTrustCommands:handle_timeout(_, num_minutes)
     return success, message
 end
 
+-- // trust item item_name
+function GeneralTrustCommands:handle_use_item(_, ...)
+    local item_name = table.concat({...}, " ") or ""
+    item_name = windower.convert_auto_trans(item_name)
+    if item_name == nil then
+        return false, "Invalid item name"
+    end
+
+    local CommandAction = require('cylibs/actions/command')
+    self.action_queue:push_action(CommandAction.new(0, 0, 0, '/item "' .. item_name .. '" <me>'), true)
+
+    return true, "Using " .. item_name
+end
+
 -- // trust debug
 function GeneralTrustCommands:handle_debug()
-    local HasKeyItemsCondition = require('cylibs/conditions/has_key_items')
-    local heal_condition = HasKeyItemsCondition.new(L{ "\"Rhapsody in Crimson\"" })
-    local heal_condition = HasBuffsCondition.new(L{"Accuracy Down", "addle", "AGI Down", "Attack Down", "bind", "Bio", "Burn", "Choke", "CHR Down", "Defense Down", "DEX Down", "Dia", "Drown", "Elegy", "Evasion Down", "Frost", "Inhibit TP", "INT Down", "Magic Acc. Down", "Magic Atk. Down", "Magic Def. Down", "Magic Evasion Down", "Max HP Down", "Max MP Down", "Max TP Down", "MND Down", "Nocturne", "Rasp", "Requiem", "Shock", "slow", "STR Down", "VIT Down", "weight", "Flash"}, 1)
-    local heal_condition = HasBuffsCondition.new(L{"Accuracy Down", "addle", "AGI Down", "Attack Down", "bind", "Bio", "Burn", "Choke", "CHR Down", "Defense Down", "DEX Down", "Dia", "Drown", "Elegy", "Evasion Down", "Frost", "Inhibit TP", "INT Down", "Magic Acc. Down", "Magic Atk. Down", "Magic Def. Down", "Magic Evasion Down", "Max HP Down", "Max MP Down", "Max TP Down", "MND Down", "Nocturne", "Rasp", "Requiem", "Shock", "slow", "STR Down", "VIT Down", "weight", "Flash"}, 1)
+    local mob = windower.ffxi.get_mob_by_name("Pulse Martello")
+    print(mob.name, mob.is_npc, mob.entity_type, mob.in_party, mob.in_alliance, mob.valid_target)
 
 
-
-    print(Condition.check_conditions(L{ heal_condition }, windower.ffxi.get_mob_by_name('Cyrite').index))
 
     --local EquipSetAction = require('cylibs/actions/equip_set')
     --local EquipSet = require('cylibs/inventory/equipment/equip_set')
